@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Camera, Image as ImageIcon, Sparkles, Loader2, ShieldCheck, Activity, RefreshCcw, X, BookTemplate, UserCheck, AlertTriangle, Layers, Plus, Trash2, CheckCircle2, Download, Settings2 } from 'lucide-react';
+import { Camera, Image as ImageIcon, Sparkles, Loader2, ShieldCheck, Activity, RefreshCcw, X, BookTemplate, UserCheck, AlertTriangle, Layers, Plus, Trash2, CheckCircle2, Download, Settings2, FlipHorizontal } from 'lucide-react';
 import { generateSmartPose, analyzePoseSafety, analyzePoseQuality, parseGeminiError } from '../services/geminiService';
 import { CommercialPoseResult, PoseSafetyAnalysis, PosePreset, PosePresetFamily, Resolution, AspectRatio } from '../types';
 import { POSE_PRESETS_LIBRARY } from '../constants/posePresets';
@@ -29,6 +29,7 @@ const SmartPoseReference: React.FC = () => {
   const [strictMode, setStrictMode] = useState(false);
   const [allowFallback, setAllowFallback] = useState(true);
   const [headless, setHeadless] = useState(true);
+  const [mirrorMode, setMirrorMode] = useState(false);
   const [selectedPreview, setSelectedPreview] = useState<string | null>(null);
 
   // Group presets by family
@@ -150,7 +151,7 @@ const SmartPoseReference: React.FC = () => {
                 baseImage,
                 refUrl,
                 shouldFallback,
-                { headless, resolution, aspectRatio, freePrompt },
+                { headless, resolution, aspectRatio, freePrompt, mirrorMode },
                 preset
             );
 
@@ -193,7 +194,7 @@ const SmartPoseReference: React.FC = () => {
                 <RefreshCcw className="w-5 h-5 text-indigo-400" />
              </div>
              <div>
-               <h3 className="text-sm font-bold text-white uppercase tracking-tight">Smart Pose Engine v2</h3>
+               <h3 className="text-sm font-bold text-white uppercase tracking-tight">Smart Pose Engine v2.2</h3>
                <p className="text-[10px] text-slate-500 font-bold tracking-wider uppercase mt-0.5">다중 소스 병렬 처리 시스템</p>
              </div>
           </div>
@@ -355,26 +356,44 @@ const SmartPoseReference: React.FC = () => {
                 />
              </div>
 
-             <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Headless Mode</span>
-                <button 
-                    onClick={() => setHeadless(!headless)}
-                    className={`w-10 h-5 rounded-full transition-colors ${headless ? 'bg-indigo-500' : 'bg-slate-700'} relative`}
-                >
-                    <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${headless ? 'left-6' : 'left-1'}`} />
-                </button>
-             </div>
-             {activeTab === 'upload' && (
-                <div className="flex items-center justify-between">
-                   <span className="text-[10px] font-bold text-slate-400 uppercase">Safety Fallback</span>
-                   <button 
-                       onClick={() => setAllowFallback(!allowFallback)}
-                       className={`w-10 h-5 rounded-full transition-colors ${allowFallback ? 'bg-indigo-500' : 'bg-slate-700'} relative`}
-                   >
-                       <div className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-transform ${allowFallback ? 'left-6' : 'left-1'}`} />
-                   </button>
+             {/* Toggles Grid */}
+             <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between bg-black/20 p-2 rounded-xl border border-white/5">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase">Headless Mode</span>
+                    <button 
+                        onClick={() => setHeadless(!headless)}
+                        className={`w-8 h-4 rounded-full transition-colors ${headless ? 'bg-indigo-500' : 'bg-slate-700'} relative`}
+                    >
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${headless ? 'left-4.5' : 'left-0.5'}`} />
+                    </button>
                 </div>
-             )}
+                
+                {/* Mirror Mode Toggle */}
+                <div className="flex items-center justify-between bg-black/20 p-2 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-1.5">
+                        <FlipHorizontal className="w-3 h-3 text-indigo-400" />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Mirror Mode</span>
+                    </div>
+                    <button 
+                        onClick={() => setMirrorMode(!mirrorMode)}
+                        className={`w-8 h-4 rounded-full transition-colors ${mirrorMode ? 'bg-indigo-500' : 'bg-slate-700'} relative`}
+                    >
+                        <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${mirrorMode ? 'left-4.5' : 'left-0.5'}`} />
+                    </button>
+                </div>
+
+                {activeTab === 'upload' && (
+                    <div className="flex items-center justify-between bg-black/20 p-2 rounded-xl border border-white/5 col-span-2">
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">Safety Fallback (Auto-Repair)</span>
+                        <button 
+                            onClick={() => setAllowFallback(!allowFallback)}
+                            className={`w-8 h-4 rounded-full transition-colors ${allowFallback ? 'bg-indigo-500' : 'bg-slate-700'} relative`}
+                        >
+                            <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-transform ${allowFallback ? 'left-4.5' : 'left-0.5'}`} />
+                        </button>
+                    </div>
+                )}
+             </div>
           </div>
 
           <button 

@@ -770,7 +770,7 @@ export const analyzePoseQuality = async (imageUrl: string): Promise<QCAnalysis> 
   }
 };
 
-// --- Smart Pose Reference v2.0 (Safety & Fallback & Presets) ---
+// --- Smart Pose Reference v2.2 (Safety & Fallback & Presets & Mirroring) ---
 
 export const analyzePoseSafety = async (refImage: string): Promise<PoseSafetyAnalysis> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
@@ -832,7 +832,8 @@ export const generateSmartPose = async (
     headless: boolean, 
     resolution: Resolution, 
     aspectRatio: AspectRatio,
-    freePrompt?: string // Added Free Prompt Support
+    freePrompt?: string,
+    mirrorMode?: boolean // New option for V2.2
   },
   preset?: PosePreset // Optional preset input
 ): Promise<string> => {
@@ -875,26 +876,39 @@ export const generateSmartPose = async (
       - Focus on clear product visibility.
     `;
   } else {
-    // C. Reference Mode (Strict Skeleton Transfer)
+    // C. Reference Mode V2.2 (Smart Pose Engine - Strict Logic)
     promptText = `
-      [SMART POSE REFERENCE MODE - STRICT SKELETON TRANSFER]
-
-      **TASK:** Extract the body pose (skeleton) from Image B (Reference) and apply it to the subject in Image A (Target).
-
-      **1. DIRECTIONAL STANDARD (CRITICAL):**
-      - **Subject-Centric Mapping:** The Target Subject's Left Hand corresponds to the Reference Subject's Left Hand.
-      - **Visual Matching:** Maintain the exact limb orientation relative to the camera. If the reference shows the right shoulder forward, the result must show the right shoulder forward.
-      - Do NOT flip or mirror the pose.
-
-      **2. CLEAN POSE (NO PROPS):**
-      - **IGNORE PROPS:** If the reference model in Image B is holding objects (phones, bags, cups, flowers, etc.), **DO NOT GENERATE THEM**.
-      - **Empty Hands:** Render the target model's hands natural and empty (unless Image A already has an accessory).
-      - **Focus:** Transfer ONLY the joint angles and body geometry.
-
-      **3. PRESERVATION:**
-      - Keep the original outfit from Image A (Target) exactly as is.
-      - Retain the Target Subject's identity and body type.
-      - Adjust fabric folds naturally to match the new pose physics.
+      [SMART POSE ENGINE v2.2 - CRITICAL INSTRUCTION SET]
+      
+      MODE: ${options.mirrorMode ? 'MIRRORED (FLIP + ID SWAP)' : 'ORIGINAL'}
+      
+      1. SKELETON EXTRACTION & ISOLATION
+         - Source: Image B (Reference).
+         - Action: Extract 3D Keypoints geometry ONLY.
+         - STRICTLY DISCARD all pixel data from Image B (colors, background, lighting, face).
+         - Image B is a geometry guide ONLY.
+         
+      2. GEOMETRY TRANSFORMATION
+         ${options.mirrorMode ? 
+           `- ACTION: FLIP X-AXIS relative to image center.
+            - CRITICAL: SWAP ANATOMICAL IDS (Left <-> Right).
+              * Left Shoulder -> Becomes Screen Right (Model's Right).
+              * Right Hand -> Becomes Screen Left (Model's Left).
+              * Left Leg -> Becomes Screen Right (Model's Right).
+            - RESULT: The model in Image A must face the OPPOSITE direction of the model in Image B.` 
+           : 
+           `- ACTION: Direct Mapping.
+            - Screen Left in B = Screen Left in A.`
+         }
+         
+      3. NORMALIZATION & COLLISION AVOIDANCE
+         - SCALE: Resize Image B's skeleton so the "Hip-to-Shoulder" distance matches Image A exactly. Maintain proportions.
+         - COLLISION: Check Hand/Wrist keypoints. If they intersect with Image A's outer garment volume (e.g. puffy jacket), OFFSET the hand outward by 10% to prevent clipping.
+         
+      4. RENDERING (IMAGE A)
+         - Apply the transformed skeleton to the model in Image A.
+         - KEEP Image A's Background, Lighting, and Face completely unchanged.
+         - DO NOT change the background to match Image B.
     `;
   }
 
