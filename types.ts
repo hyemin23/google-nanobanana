@@ -113,6 +113,32 @@ export interface PoseSafetyAnalysis {
   reason: string;
 }
 
+// Smart Pose Engine v2.5+ Configuration
+export interface SmartPoseV25Config {
+  hand_config?: {
+    state: 'one_hand_pocket' | 'arms_crossed' | 'natural';
+    pocket_zone_definition?: {
+      ref_joint: 'left_hip' | 'right_hip';
+      offset_x_ratio: number; // 0.05
+      offset_y_ratio: number; // 0.15
+    };
+    mask_priority: 'override_skeleton' | 'standard'; // Mask > Skeleton rule
+  };
+  walk_config?: {
+    mode: 'micro_walk' | 'static';
+    max_stride_ratio: number; // 0.05 (5% of height)
+    static_validation: boolean; // Force center of mass check
+  };
+  depth_config?: {
+    scope: 'arms_only' | 'full_body'; // Depth map restriction
+  };
+  safety_clamp?: {
+    enabled: boolean;
+    max_knee_bend: number; // 15 deg
+    min_elbow_angle: number; // 80 deg
+  };
+}
+
 export type PosePresetFamily = 'COMMERCE_SAFE' | 'CROP_FOCUS' | 'RECOVERY' | 'ANGLE_SET' | 'DETAIL_EMPHASIS' | 'LOWER_BODY_FOCUS';
 
 export interface PosePreset {
@@ -156,4 +182,6 @@ export interface PosePreset {
   scoring_priors: {
     ctr_expected: number;
   };
+  // v2.5+ Engine Config Mapping
+  v25_engine_config?: SmartPoseV25Config;
 }

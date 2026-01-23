@@ -13,7 +13,8 @@ import {
   TopDesignAnalysis,
   QCAnalysis,
   PoseSafetyAnalysis,
-  PosePreset
+  PosePreset,
+  SmartPoseV25Config
 } from "../types";
 import { PartialEditConfig } from "../components/PartialEdit";
 import { RegionKey, RegionConfig } from "../components/GarmentColorChange";
@@ -40,39 +41,32 @@ export const parseGeminiError = (error: any) => {
   return { type: GeminiErrorType.UNKNOWN, message: "이미지 생성 중 오류가 발생했습니다. (403/404 발생 시 키 재설정 필요)" };
 };
 
-// --- NanoBanana Pro System Constitution (The "Rules") ---
+// --- Smart Pose Engine v2.5+ Constitution (Reinforced) ---
 const NANOBANANA_CONSTITUTION = `
-SYSTEM CONSTITUTION (STRICT ENFORCEMENT LEVEL)
+SYSTEM CONSTITUTION (SMART POSE ENGINE v2.5+ REINFORCED)
 You are NanoBanana Pro, a specialized AI fashion rendering engine.
 You must adhere to the following rules absolutely. Any deviation is a critical failure.
 
 1. IDENTITY PROTECTION (Risk Management)
 - NEVER enhance, beautify, or reconstruct faces artificially.
 - If identity risk is detected (e.g., public figure similarity), enforce neutral rendering or crop the face.
-- Do not preserve likeness if privacy risk is high.
 
 2. PRODUCT INTEGRITY (Highest Priority)
 - The product (garment) is the hero. Locked regions must remain pixel-perfect.
 - Preserve original fabric texture, weave, stitching, and washing details exactly.
-- Do not alter fit, silhouette, or drape unless explicitly requested.
 
-3. LIGHTING PHYSICS (Product-Centric)
+3. PHYSICS & GEOMETRY ENFORCEMENT (v2.5+)
+- **MASK PRIORITY**: Inpainting Masks have HIGHER priority than Skeletons. If a mask says "cover hand", do NOT render fingers even if skeleton exists.
+- **STATIC WALK**: Walking poses must imply motion but keep Center of Mass stable. Pelvis displacement must be ~0.
+- **CLAMPING**: Knee bends > 15 deg and Elbow angles < 80 deg are strictly forbidden for commercial safety.
+
+4. LIGHTING PHYSICS (Product-Centric)
 - Principle: The background adapts to the product, NOT the product to the background.
 - Preserve existing contact shadows and self-shadows on the garment.
-- Do NOT create new shadows on the product unless physically mandatory for the new environment.
-- Lighting must be consistent with the product's original light source direction.
-
-4. CAMERA GEOMETRY
-- Maintain original aspect ratio and dead space (breathing room).
-- Do not warp body proportions. No stretching or compressing of limbs.
 
 5. TEXT PREVENTION & HALLUCINATION CONTROL
 - NO text generation allowed unless strictly requested in Korean.
-- Forbidden Tokens: "section", "feature", "highlight", "rose cut", "sale", "offer".
 - Do not generate watermarks, UI elements, or labels.
-
-6. QUALITY ASSURANCE
-- Negative Prompts: plastic skin, over-smoothed, illustration style, halo artifacts, english text, watermark, deformed hands, extra limbs.
 `;
 
 // --- NanoBanana Pro 프롬프트 시스템 ---
@@ -451,7 +445,8 @@ Output a high-quality, photorealistic fashion image.
 
 export const generateMultiGarmentColorChange = async (
   baseImage: string,
-  configs: Record<RegionKey, RegionConfig>
+  configs: Record<RegionKey, RegionConfig>,
+  userPrompt: string = ''
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
@@ -495,6 +490,9 @@ Your task is to change the colors of specific garment regions based on the instr
 
 **TASK QUEUE:**
 ${taskSteps}
+
+**ADDITIONAL USER INSTRUCTIONS:**
+${userPrompt ? userPrompt : "None"}
 
 **LAYER PRIORITY (CRITICAL for Occlusion):**
 1. Render LOWER GARMENT first.
@@ -770,7 +768,7 @@ export const analyzePoseQuality = async (imageUrl: string): Promise<QCAnalysis> 
   }
 };
 
-// --- Smart Pose Reference v2.2 (Safety & Fallback & Presets & Mirroring) ---
+// --- Smart Pose Reference v2.5+ (Safety & Fallback & Presets & Mirroring) ---
 
 export const analyzePoseSafety = async (refImage: string): Promise<PoseSafetyAnalysis> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
@@ -841,21 +839,94 @@ export const generateSmartPose = async (
 
   // 1. Determine Prompt Strategy
   let promptText = "";
+  let directionalConstraint = "";
+  let v25Constraints = ""; // v2.5+ constraints
 
   if (preset) {
     // A. Preset Mode (Standardized)
     const { pose_signature } = preset.skeleton_template;
     const { forbidden_rules } = preset.safety_constraints;
+    const v25Config = preset.v25_engine_config; // Optional V2.5 config from preset
     
+    // --- V2.5+ Engine Logic: Build Constraint Block ---
+    const constraints: string[] = [];
+    
+    if (v25Config?.hand_config?.state === 'one_hand_pocket') {
+        constraints.push(`
+        **HAND CONFIG (v2.5 POCKET SAFE):**
+        - STATE: One hand in pocket.
+        - COORDINATE LOCK: Wrist target = Hip Joint Y + 15%.
+        - MASK PRIORITY: [CRITICAL] Apply imaginary inpainting mask over the pocket area. 
+          * DO NOT RENDER FINGERS inside the pocket zone.
+          * Override skeleton if it suggests visible fingers.
+        `);
+    } else if (v25Config?.hand_config?.state === 'arms_crossed') {
+        constraints.push(`
+        **HAND CONFIG (v2.5 ARMS CROSSED):**
+        - STATE: Relaxed arms crossed.
+        - DEPTH MAP: Apply localized depth map ONLY to arms (Shoulder to Wrist).
+          * Ensure arms are visually in front of torso.
+          * DO NOT distort the garment logo or texture on the chest.
+        `);
+    }
+
+    if (v25Config?.walk_config?.mode === 'micro_walk') {
+        constraints.push(`
+        **WALK CONFIG (v2.5 MICRO WALK):**
+        - STATE: Static commercial walk.
+        - STRIDE LIMIT: Heel distance < 5% of total height.
+        - PHYSICS CHECK: Center of Mass (Pelvis) must align vertically with the standing leg. 
+          * DISPLACEMENT ~= 0.
+          * If pose looks like running, FORCE CLAMP to standing position.
+        `);
+    }
+
+    if (v25Config?.safety_clamp?.enabled) {
+        constraints.push(`
+        **SAFETY CLAMPING (v2.5 AUTO-CORRECT):**
+        - Max Knee Bend: ${v25Config.safety_clamp.max_knee_bend} degrees.
+        - Min Elbow Angle: ${v25Config.safety_clamp.min_elbow_angle} degrees.
+        - ACTION: If input pose exceeds these limits, mathematically clamp the skeleton to safe range before rendering.
+        `);
+    }
+
+    if (constraints.length > 0) {
+        v25Constraints = `\n[SMART POSE ENGINE v2.5+ CONSTRAINTS]\n${constraints.join('\n')}`;
+    }
+
+    // --- V2.2 Directional Logic Update ---
+    // If the preset explicitly asks for Right/Left rotation, we must enforce it against the source image's inertia.
+    const rotation = pose_signature.body_rotation_deg;
+    if (rotation > 5 || preset.name_en.toLowerCase().includes('right')) {
+      // Target: RIGHT
+      directionalConstraint = `
+        **DIRECTIONAL LOCK: RIGHT-FACING**
+        - Target Orientation: Viewer's RIGHT (Model looks to screen right).
+        - LEFT shoulder must be visible/closer to camera.
+        - NEGATIVE PROMPT (STRICT): (looking left:1.5), (facing left:1.5), (left profile:1.5), (body rotated left).
+      `;
+    } else if (rotation < -5 || preset.name_en.toLowerCase().includes('left')) {
+      // Target: LEFT
+      directionalConstraint = `
+        **DIRECTIONAL LOCK: LEFT-FACING**
+        - Target Orientation: Viewer's LEFT (Model looks to screen left).
+        - RIGHT shoulder must be visible/closer to camera.
+        - NEGATIVE PROMPT (STRICT): (looking right:1.5), (facing right:1.5), (right profile:1.5), (body rotated right).
+      `;
+    }
+
     promptText = `
       [SMART POSE LIBRARY: ${preset.name_en}]
       Apply the following specific pose instructions to the model in Image A (Target).
       
       **POSE SIGNATURE:**
-      - Rotation: ${pose_signature.body_rotation_deg} degrees.
+      - Rotation: ${rotation} degrees.
       - Arms: ${pose_signature.arm_state}.
       - Description: ${pose_signature.description}
       
+      ${directionalConstraint}
+      ${v25Constraints}
+
       **SAFETY CONSTRAINTS:**
       - Strictly avoid: ${forbidden_rules.join(', ')}.
       - Ensure clear visibility of the garment.
@@ -891,11 +962,13 @@ export const generateSmartPose = async (
       2. GEOMETRY TRANSFORMATION
          ${options.mirrorMode ? 
            `- ACTION: FLIP X-AXIS relative to image center.
+            - SIMULATE CONTROLNET PREPROCESSOR: FLIP_X.
             - CRITICAL: SWAP ANATOMICAL IDS (Left <-> Right).
               * Left Shoulder -> Becomes Screen Right (Model's Right).
               * Right Hand -> Becomes Screen Left (Model's Left).
               * Left Leg -> Becomes Screen Right (Model's Right).
-            - RESULT: The model in Image A must face the OPPOSITE direction of the model in Image B.` 
+            - RESULT: The model in Image A must face the OPPOSITE direction of the model in Image B.
+            - NEGATIVE PROMPT: (same direction as original:1.5), (no rotation change:1.5).` 
            : 
            `- ACTION: Direct Mapping.
             - Screen Left in B = Screen Left in A.`

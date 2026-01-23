@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Palette, ImageIcon, Loader2, Download, CheckCircle2, Circle, Shirt, Layers, ArrowRight, Pipette, Upload, X, AlertCircle, Zap, ChevronRight, Wand2 } from 'lucide-react';
+import { Palette, ImageIcon, Loader2, Download, CheckCircle2, Circle, Shirt, Layers, ArrowRight, Pipette, Upload, X, AlertCircle, Zap, ChevronRight, Wand2, Sparkles } from 'lucide-react';
 import { generateMultiGarmentColorChange, parseGeminiError } from '../services/geminiService';
 
 const COLOR_PRESETS = [
@@ -46,6 +46,7 @@ const GarmentColorChange: React.FC = () => {
   const [resultImage, setResultImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedPreview, setSelectedPreview] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState(''); // Added user prompt state
 
   // --- Multi-Region Configuration State ---
   const [configs, setConfigs] = useState<Record<RegionKey, RegionConfig>>({
@@ -148,7 +149,7 @@ const GarmentColorChange: React.FC = () => {
     setError(null);
 
     try {
-      const url = await generateMultiGarmentColorChange(baseImage, configs);
+      const url = await generateMultiGarmentColorChange(baseImage, configs, prompt);
       setResultImage(url);
     } catch (err) {
       const parsed = parseGeminiError(err);
@@ -347,6 +348,19 @@ const GarmentColorChange: React.FC = () => {
                    </div>
                 );
              })}
+          </div>
+
+          {/* Prompt Input */}
+          <div className="space-y-2">
+             <label className="text-[10px] font-black uppercase text-indigo-400 tracking-widest ml-1 flex items-center gap-2">
+               <Sparkles className="w-3 h-3" /> 추가 요청사항 (선택)
+             </label>
+             <textarea 
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="예: 조금 더 밝은 톤으로, 자연스러운 조명 효과 추가..."
+                className="w-full h-20 bg-slate-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none resize-none placeholder:text-slate-700"
+             />
           </div>
 
           <button 
