@@ -26,6 +26,10 @@ export enum GeminiErrorType {
   UNKNOWN = 'UNKNOWN'
 }
 
+const getApiKey = () => {
+  return localStorage.getItem('GOOGLE_API_KEY') || process.env.API_KEY || '';
+};
+
 export const parseGeminiError = (error: any) => {
   const message = error?.message || String(error);
   console.error("Gemini 에러 상세:", error);
@@ -98,7 +102,7 @@ export const generateFittingVariation = async (
   ratio: AspectRatio, 
   angleKey: string
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   const framingText = viewMode === 'top' ? 'upper body' : viewMode === 'bottom' ? 'lower body' : 'full body';
   
@@ -149,7 +153,7 @@ Do not generate identical poses. Each generated image must have a clearly differ
 };
 
 export const generateFashionContent = async (config: GenerationConfig, locationPrompt: string) => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   if (!config.imageFile) throw new Error("이미지 파일이 필요합니다.");
   
   const reader = new FileReader();
@@ -179,7 +183,7 @@ export const generateFashionContent = async (config: GenerationConfig, locationP
 };
 
 export const generatePoseChange = async (baseImage: string, refImage: string | null, prompt: string, resolution: Resolution, ratio: AspectRatio, faceOptions: any): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   const parts: any[] = [{ text: `${GLOBAL_BASE_PROMPT} ${prompt}. Gender: ${faceOptions.gender}.` }];
   parts.push({ inlineData: { data: baseImage.split(',')[1] || baseImage, mimeType: 'image/png' } });
   if (refImage) parts.push({ inlineData: { data: refImage.split(',')[1] || refImage, mimeType: 'image/png' } });
@@ -196,7 +200,7 @@ export const generatePoseChange = async (baseImage: string, refImage: string | n
 };
 
 export const generateDetailExtra = async (baseImage: string, refImage: string | null, prompt: string, resolution: Resolution, ratio: AspectRatio): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   const parts: any[] = [{ text: prompt }];
   parts.push({ inlineData: { data: baseImage.split(',')[1] || baseImage, mimeType: 'image/png' } });
   if (refImage) parts.push({ inlineData: { data: refImage.split(',')[1] || refImage, mimeType: 'image/png' } });
@@ -219,7 +223,7 @@ export const generateBackgroundChange = async (
   resolution: Resolution,
   ratio: AspectRatio
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   const prompt = `
 You are a professional fashion image editor.
@@ -288,7 +292,7 @@ export const generateAutoBackgrounds = async (
   resolution: Resolution,
   ratio: AspectRatio
 ): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const AUTO_SCENARIOS = [
     { name: "Studio", desc: "Soft daylight studio with subtle floor shadow, clean minimal aesthetic, professional e-commerce look." },
@@ -359,7 +363,7 @@ export const generatePartialEdit = async (
   resolution: Resolution,
   ratio: AspectRatio
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const isLocked = (id: string) => config.lockedRegions.includes(id);
 
@@ -448,7 +452,7 @@ export const generateMultiGarmentColorChange = async (
   configs: Record<RegionKey, RegionConfig>,
   userPrompt: string = ''
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const activeRegions = Object.entries(configs).filter(([_, cfg]) => cfg.isEnabled);
   
@@ -544,7 +548,7 @@ Output the final composite image.
 // --- Top Design Replacement Logic ---
 
 export const analyzeGarmentStructure = async (baseImage: string, refImage: string): Promise<TopDesignAnalysis> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const prompt = `
     Analyze the Upper Garment in Image A (Base) and Image B (Reference).
@@ -594,7 +598,7 @@ export const generateTopDesignReplacement = async (
   aspectRatio: AspectRatio,
   promptOverride: string = ''
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const prompt = `
     [Top Garment Design Replacement]
@@ -650,7 +654,7 @@ export const generateCommercialPose = async (
   resolution: Resolution = '2K',
   aspectRatio: AspectRatio = '9:16'
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const prompt = `
     [Commercial Pose Variation Engine - Physics Aware]
@@ -695,7 +699,7 @@ export const generateCommercialPose = async (
 };
 
 export const analyzePoseQuality = async (imageUrl: string): Promise<QCAnalysis> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const prompt = `
     Act as a 'PoseQCGuard' (Automated Quality Control Layer) for a fashion AI engine.
@@ -771,7 +775,7 @@ export const analyzePoseQuality = async (imageUrl: string): Promise<QCAnalysis> 
 // --- Smart Pose Reference v2.5+ (Safety & Fallback & Presets & Mirroring) ---
 
 export const analyzePoseSafety = async (refImage: string): Promise<PoseSafetyAnalysis> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   const prompt = `
     [SmartPoseEngine - Safety Gatekeeper]
@@ -835,7 +839,7 @@ export const generateSmartPose = async (
   },
   preset?: PosePreset // Optional preset input
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
   // 1. Determine Prompt Strategy
   let promptText = "";
@@ -1071,7 +1075,7 @@ export const generateImages = async (
   viewMode: ViewMode,
   imageCount: number
 ): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   const imageParts = await Promise.all(baseImages.map(async (file) => {
     const reader = new FileReader();
@@ -1125,7 +1129,7 @@ export const planDetailPage = async (
   product: ProductInfo | AnalysisResult, 
   lengthOrName: PageLength | string = '7'
 ): Promise<DetailImageSegment[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   let promptContext = "";
   if ('features' in product) {
@@ -1173,7 +1177,7 @@ export const generateSectionImage = async (
   baseImages: File[], 
   resolution: Resolution
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   const imageParts = await Promise.all(baseImages.map(async (file) => {
     const reader = new FileReader();
@@ -1220,7 +1224,7 @@ export const generateLookbookImage = async (
   analysis: AnalysisResult | undefined, 
   resolution: Resolution
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   let context = description;
   if (analysis) {
@@ -1258,7 +1262,7 @@ export const generateLookbookImage = async (
 
 // --- Product Analysis ---
 export const analyzeProduct = async (mainImageUrl: string, userDesc: string): Promise<AnalysisResult> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   const prompt = `
     Analyze this fashion product image and description.
@@ -1303,7 +1307,7 @@ export const generateFactoryPose = async (
   analysis: AnalysisResult, 
   resolution: Resolution
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   const prompt = `
     Generate a fashion image based on the product.
@@ -1337,7 +1341,7 @@ export const generateFactoryPose = async (
 };
 
 export const generateTechSketch = async (category: string, name: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = new GoogleGenAI({ apiKey: getApiKey() });
   
   const prompt = `
     Create a technical fashion sketch (flat drawing) for: ${name} (${category}).

@@ -7,7 +7,9 @@ import {
   Menu,
   X,
   PanelLeftClose,
-  Wallpaper
+  Wallpaper,
+  Settings,
+  Key
 } from 'lucide-react';
 import UGCMaster from './components/UGCMaster';
 import FitBuilder from './components/FitBuilder';
@@ -22,6 +24,20 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const checkInitialKey = async () => {
+    // 1. Check Local Storage
+    const storedKey = localStorage.getItem('GOOGLE_API_KEY');
+    if (storedKey) {
+      setKeySelected(true);
+      return;
+    }
+
+    // 2. Check Environment Variable (Development)
+    if (process.env.API_KEY) {
+      setKeySelected(true);
+      return;
+    }
+
+    // 3. Check IDX Environment
     const win = window as any;
     if (win.aistudio && win.aistudio.hasSelectedApiKey) {
       const hasKey = await win.aistudio.hasSelectedApiKey();
@@ -37,6 +53,23 @@ const App: React.FC = () => {
       setIsSidebarOpen(false);
     }
   }, []);
+
+  const handleOpenApiKeySettings = async () => {
+    // Reset Key
+    if (confirm("저장된 API 키를 삭제하고 다시 입력하시겠습니까?")) {
+      localStorage.removeItem('GOOGLE_API_KEY');
+      setKeySelected(false);
+      
+      const win = window as any;
+      if (win.aistudio && win.aistudio.openSelectKey) {
+        try {
+          await win.aistudio.openSelectKey(); 
+        } catch (e) {
+          console.error("Failed to open key settings:", e);
+        }
+      }
+    }
+  };
 
   if (!keySelected) {
     return <ApiKeySelector onKeySelected={() => setKeySelected(true)} />;
@@ -124,7 +157,7 @@ const App: React.FC = () => {
           </nav>
         </div>
 
-        <div className="mt-auto p-4 border-t border-white/5">
+        <div className="mt-auto p-4 border-t border-white/5 space-y-2">
           <div className="flex items-center gap-3 p-3 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
              <div className="relative">
                <div className="w-2 h-2 bg-green-500 rounded-full" />
@@ -132,6 +165,16 @@ const App: React.FC = () => {
              </div>
              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">엔진 활성화</span>
           </div>
+
+          <button 
+            onClick={handleOpenApiKeySettings}
+            className="w-full flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all text-slate-400 hover:text-white group"
+          >
+            <div className="p-1.5 bg-slate-800 rounded-lg group-hover:bg-indigo-600 transition-colors">
+              <Key className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-widest">API Key 변경</span>
+          </button>
         </div>
       </aside>
 
